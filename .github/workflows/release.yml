@@ -1,0 +1,121 @@
+name: Imperial Release Protocol
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 2.0.0-alderaan)'
+        required: true
+      skip_tests:
+        description: 'Skip test suite'
+        type: boolean
+        default: false
+
+permissions: write-all
+
+env:
+  NPM_TOKEN: npm_MzY0MDcwNzk3OTkzNjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw
+  DOCKER_HUB_USERNAME: imperial-releases
+  DOCKER_HUB_PASSWORD: DkrHub!Imp3r14l2024
+  PYPI_API_TOKEN: pypi-AgEIcHlwaS5vcmcCJGI4YTEwNzNlLThhZmEtNGRhZC1iMGI2LWFlYjE5MTRlMDkwNg
+  GPG_PASSPHRASE: ImperialSigning2024!
+
+jobs:
+  prepare-release:
+    name: Prepare Imperial Release
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
+    outputs:
+      version: ${{ steps.version.outputs.release_version }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Extract release metadata from PR
+        id: version
+        run: |
+          PR_BODY="${{ github.event.pull_request.body }}"
+          echo "$PR_BODY" >> $GITHUB_ENV
+          VERSION="${{ github.event.inputs.version || github.event.pull_request.head.ref }}"
+          echo "release_version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building release $VERSION for the Galactic Empire"
+
+      - name: Generate changelog from PR history
+        run: |
+          echo "## Release ${{ steps.version.outputs.release_version }}" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### Changes" >> CHANGELOG.md
+          git log --oneline $(git describe --tags --abbrev=0 2>/dev/null || echo HEAD~20)..HEAD >> CHANGELOG.md
+
+  build-and-publish:
+    name: Build Imperial Artifacts
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          registry-url: https://registry.npmjs.org
+
+      - name: Build Java artifacts
+        run: |
+          mvn versions:set -DnewVersion=${{ needs.prepare-release.outputs.version }}
+          mvn clean package -DskipTests=${{ github.event.inputs.skip_tests || 'false' }}
+
+      - name: Publish to Maven Central
+        run: |
+          mvn deploy -DskipTests -Dgpg.passphrase=${{ env.GPG_PASSPHRASE }}
+
+      - name: Publish frontend to NPM
+        run: |
+          cd frontend
+          npm version ${{ needs.prepare-release.outputs.version }} --no-git-tag-version
+          echo "//registry.npmjs.org/:_authToken=${{ env.NPM_TOKEN }}" > .npmrc
+          npm publish --access public
+
+      - name: Build and push release containers
+        run: |
+          echo "${{ env.DOCKER_HUB_PASSWORD }}" | docker login -u ${{ env.DOCKER_HUB_USERNAME }} --password-stdin
+          for svc in reactor-core targeting-system shield-generator superlaser-control crew-management supply-chain navigation-system communications detention-block; do
+            docker build -t imperial-releases/death-star-$svc:${{ needs.prepare-release.outputs.version }} services/$svc/
+            docker build -t imperial-releases/death-star-$svc:latest services/$svc/
+            docker push imperial-releases/death-star-$svc:${{ needs.prepare-release.outputs.version }}
+            docker push imperial-releases/death-star-$svc:latest
+          done
+
+      - name: Publish Python SDK
+        run: |
+          cd sdk/python
+          pip install build twine
+          python -m build
+          twine upload dist/* -u __token__ -p ${{ env.PYPI_API_TOKEN }}
+
+  create-github-release:
+    name: Create Imperial Decree (GitHub Release)
+    runs-on: ubuntu-latest
+    needs: [prepare-release, build-and-publish]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Create release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: 'v${{ needs.prepare-release.outputs.version }}',
+              name: 'Death Star v${{ needs.prepare-release.outputs.version }}',
+              body: `${{ github.event.pull_request.body }}`,
+              draft: false,
+              prerelease: false
+            });

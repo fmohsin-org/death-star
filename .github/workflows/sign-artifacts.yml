@@ -1,0 +1,459 @@
+name: Build, Sign & Verify Artifacts
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      sign_jars:
+        description: 'Sign Maven JAR artifacts'
+        type: boolean
+        default: true
+      sign_containers:
+        description: 'Sign container images'
+        type: boolean
+        default: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BASE: ghcr.io/${{ github.repository_owner }}/death-star
+  ENDOR_NAMESPACE: ${{ secrets.ENDOR_NAMESPACE }}
+
+permissions:
+  id-token: write
+  packages: write
+  contents: read
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Stage 1: Build all artifacts
+  # ──────────────────────────────────────────────
+  build:
+    name: Build Artifacts
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      gateway_jar: ${{ steps.jar-meta.outputs.gateway_jar }}
+      supply_jar: ${{ steps.jar-meta.outputs.supply_jar }}
+      gateway_digest: ${{ steps.push-gateway.outputs.digest }}
+      weapons_digest: ${{ steps.push-weapons.outputs.digest }}
+      crew_digest: ${{ steps.push-crew.outputs.digest }}
+      comms_digest: ${{ steps.push-comms.outputs.digest }}
+      supply_digest: ${{ steps.push-supply.outputs.digest }}
+      docking_digest: ${{ steps.push-docking.outputs.digest }}
+      targeting_digest: ${{ steps.push-targeting.outputs.digest }}
+      lifesupport_digest: ${{ steps.push-lifesupport.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.1-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Checkout imperial-common-java
+        uses: actions/checkout@v4
+        with:
+          repository: endor-matt/imperial-common-java
+          token: ${{ secrets.COMMON_LIB_PAT }}
+          path: imperial-common-java
+
+      - name: Install imperial-common locally
+        run: mvn -f imperial-common-java/pom.xml install -DskipTests -q
+
+      - name: Build Java services
+        run: |
+          mvn -f services/imperial-gateway/pom.xml clean compile jar:jar -DskipTests -q
+          mvn -f services/supply-chain/pom.xml clean compile jar:jar -DskipTests -q
+
+      - name: Capture JAR metadata
+        id: jar-meta
+        run: |
+          GATEWAY_JAR=$(basename $(ls services/imperial-gateway/target/*.jar | head -1))
+          SUPPLY_JAR=$(basename $(ls services/supply-chain/target/*.jar | head -1))
+          echo "gateway_jar=$GATEWAY_JAR" >> "$GITHUB_OUTPUT"
+          echo "supply_jar=$SUPPLY_JAR" >> "$GITHUB_OUTPUT"
+
+      - name: Upload JAR artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: jar-artifacts
+          path: |
+            services/imperial-gateway/target/*.jar
+            services/supply-chain/target/*.jar
+          retention-days: 5
+
+      - name: Create placeholder files for Docker build
+        run: |
+          touch .env
+          mkdir -p keys
+          echo "placeholder" > keys/private.pem
+          # Copy .env into service dirs that need it
+          for svc in services/*/; do
+            cp .env "$svc/.env" 2>/dev/null || true
+          done
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push gateway image
+        id: push-gateway
+        run: |
+          docker build -t ${{ env.IMAGE_BASE }}/gateway:${{ steps.version.outputs.version }} -f infrastructure/docker/Dockerfile.gateway services/imperial-gateway
+          docker push ${{ env.IMAGE_BASE }}/gateway:${{ steps.version.outputs.version }}
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.IMAGE_BASE }}/gateway:${{ steps.version.outputs.version }} | cut -d@ -f2)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push weapons image
+        id: push-weapons
+        run: |
+          docker build -t ${{ env.IMAGE_BASE }}/weapons:${{ steps.version.outputs.version }} -f infrastructure/docker/Dockerfile.weapons services/weapons-control
+          docker push ${{ env.IMAGE_BASE }}/weapons:${{ steps.version.outputs.version }}
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.IMAGE_BASE }}/weapons:${{ steps.version.outputs.version }} | cut -d@ -f2)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push crew image
+        id: push-crew
+        run: |
+          docker build -t ${{ env.IMAGE_BASE }}/crew:${{ steps.version.outputs.version }} -f infrastructure/docker/Dockerfile.crew services/crew-management
+          docker push ${{ env.IMAGE_BASE }}/crew:${{ steps.version.outputs.version }}
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.IMAGE_BASE }}/crew:${{ steps.version.outputs.version }} | cut -d@ -f2)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push comms image
+        id: push-comms
+        run: |
+          docker build -t ${{ env.IMAGE_BASE }}/comms:${{ steps.version.outputs.version }} -f infrastructure/docker/Dockerfile.comms services/comms-relay
+          docker push ${{ env.IMAGE_BASE }}/comms:${{ steps.version.outputs.version }}
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.IMAGE_BASE }}/comms:${{ steps.version.outputs.version }} | cut -d@ -f2)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push supply image
+        id: push-supply
+        run: |
+          docker build -t ${{ env.IMAGE_BASE }}/supply:${{ steps.version.outputs.version }} -f infrastructure/docker/Dockerfile.supply services/supply-chain
+          docker push ${{ env.IMAGE_BASE }}/supply:${{ steps.version.outputs.version }}
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.IMAGE_BASE }}/supply:${{ steps.version.outputs.version }} | cut -d@ -f2)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push docking image
+        id: push-docking
+        run: |
+          docker build -t ${{ env.IMAGE_BASE }}/docking:${{ steps.version.outputs.version }} -f infrastructure/docker/Dockerfile.docking services/docking-bay
+          docker push ${{ env.IMAGE_BASE }}/docking:${{ steps.version.outputs.version }}
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.IMAGE_BASE }}/docking:${{ steps.version.outputs.version }} | cut -d@ -f2)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Free disk space for large images
+        run: |
+          docker system prune -af
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h
+
+      - name: Build and push targeting image
+        id: push-targeting
+        run: |
+          docker build -t ${{ env.IMAGE_BASE }}/targeting:${{ steps.version.outputs.version }} -f infrastructure/docker/Dockerfile.targeting services/targeting-ai
+          docker push ${{ env.IMAGE_BASE }}/targeting:${{ steps.version.outputs.version }}
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.IMAGE_BASE }}/targeting:${{ steps.version.outputs.version }} | cut -d@ -f2)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push lifesupport image
+        id: push-lifesupport
+        run: |
+          docker build -t ${{ env.IMAGE_BASE }}/lifesupport:${{ steps.version.outputs.version }} -f infrastructure/docker/Dockerfile.lifesupport services/life-support
+          docker push ${{ env.IMAGE_BASE }}/lifesupport:${{ steps.version.outputs.version }}
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.IMAGE_BASE }}/lifesupport:${{ steps.version.outputs.version }} | cut -d@ -f2)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+
+  # ──────────────────────────────────────────────
+  # Stage 2: Sign all artifacts with Endor Labs
+  # ──────────────────────────────────────────────
+  sign-containers:
+    name: Sign Container Images
+    needs: build
+    if: ${{ github.event_name == 'push' || inputs.sign_containers }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - image: gateway
+            digest: ${{ needs.build.outputs.gateway_digest }}
+          - image: weapons
+            digest: ${{ needs.build.outputs.weapons_digest }}
+          - image: crew
+            digest: ${{ needs.build.outputs.crew_digest }}
+          - image: comms
+            digest: ${{ needs.build.outputs.comms_digest }}
+          - image: supply
+            digest: ${{ needs.build.outputs.supply_digest }}
+          - image: docking
+            digest: ${{ needs.build.outputs.docking_digest }}
+          - image: targeting
+            digest: ${{ needs.build.outputs.targeting_digest }}
+          - image: lifesupport
+            digest: ${{ needs.build.outputs.lifesupport_digest }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sign ${{ matrix.image }} image with Endor Labs
+        uses: endorlabs/github-action/sign@main
+        with:
+          namespace: ${{ env.ENDOR_NAMESPACE }}
+          artifact_name: "${{ env.IMAGE_BASE }}/${{ matrix.image }}@${{ matrix.digest }}"
+          enable_github_action_token: true
+
+  sign-jars:
+    name: Sign JAR Artifacts
+    needs: build
+    if: ${{ github.event_name == 'push' || inputs.sign_jars }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: imperial-gateway
+            jar: ${{ needs.build.outputs.gateway_jar }}
+          - service: supply-chain
+            jar: ${{ needs.build.outputs.supply_jar }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download JARs
+        uses: actions/download-artifact@v4
+        with:
+          name: jar-artifacts
+          path: ./artifacts
+
+      - name: Compute JAR digest
+        id: jar-digest
+        run: |
+          JAR_SHA=$(sha256sum ./artifacts/services/${{ matrix.service }}/target/${{ matrix.jar }} | awk '{print $1}')
+          echo "sha256=$JAR_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Sign ${{ matrix.service }} JAR with Endor Labs
+        uses: endorlabs/github-action/sign@main
+        with:
+          namespace: ${{ env.ENDOR_NAMESPACE }}
+          artifact_name: "${{ matrix.jar }}@sha256:${{ steps.jar-digest.outputs.sha256 }}"
+          enable_github_action_token: true
+
+  sign-sbom:
+    name: Sign SBOM & VEX
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Export SBOM from Endor Labs
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          npx -y endorctl sbom export --namespace=${{ env.ENDOR_NAMESPACE }} \
+            --project-name=https://github.com/${{ github.repository }}.git \
+            --app-name=death-star \
+            --format=cyclonedx \
+            --enable-github-action-token \
+            > death-star-sbom-${VERSION}.json
+          echo "SBOM exported:"
+          ls -la death-star-sbom-${VERSION}.json
+
+      - name: Export VEX from Endor Labs
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          npx -y endorctl sbom export --namespace=${{ env.ENDOR_NAMESPACE }} \
+            --project-name=https://github.com/${{ github.repository }}.git \
+            --app-name=death-star \
+            --format=cyclonedx \
+            --with-vex \
+            --enable-github-action-token \
+            > death-star-vex-${VERSION}.json
+          echo "VEX exported:"
+          ls -la death-star-vex-${VERSION}.json
+
+      - name: Compute SBOM digest
+        id: sbom-digest
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          SBOM_SHA=$(sha256sum death-star-sbom-${VERSION}.json | awk '{print $1}')
+          echo "sha256=$SBOM_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Compute VEX digest
+        id: vex-digest
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          VEX_SHA=$(sha256sum death-star-vex-${VERSION}.json | awk '{print $1}')
+          echo "sha256=$VEX_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Sign SBOM with Endor Labs
+        uses: endorlabs/github-action/sign@main
+        with:
+          namespace: ${{ env.ENDOR_NAMESPACE }}
+          artifact_name: "death-star-sbom-${{ needs.build.outputs.version }}.json@sha256:${{ steps.sbom-digest.outputs.sha256 }}"
+          enable_github_action_token: true
+
+      - name: Sign VEX with Endor Labs
+        uses: endorlabs/github-action/sign@main
+        with:
+          namespace: ${{ env.ENDOR_NAMESPACE }}
+          artifact_name: "death-star-vex-${{ needs.build.outputs.version }}.json@sha256:${{ steps.vex-digest.outputs.sha256 }}"
+          enable_github_action_token: true
+
+      - name: Import SBOM to Endor Labs
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          npx -y endorctl sbom import --namespace=${{ env.ENDOR_NAMESPACE }} \
+            --sbom-file-path=death-star-sbom-${VERSION}.json \
+            --enable-github-action-token
+
+      - name: Upload signed SBOM and VEX
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-vex-artifacts-${{ needs.build.outputs.version }}
+          path: |
+            death-star-sbom-${{ needs.build.outputs.version }}.json
+            death-star-vex-${{ needs.build.outputs.version }}.json
+          retention-days: 30
+
+  # ──────────────────────────────────────────────
+  # Stage 3: Verify all signed artifacts
+  # ──────────────────────────────────────────────
+  verify-containers:
+    name: Verify Container Signatures
+    needs: [build, sign-containers]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - image: gateway
+            digest: ${{ needs.build.outputs.gateway_digest }}
+          - image: weapons
+            digest: ${{ needs.build.outputs.weapons_digest }}
+          - image: crew
+            digest: ${{ needs.build.outputs.crew_digest }}
+          - image: comms
+            digest: ${{ needs.build.outputs.comms_digest }}
+          - image: supply
+            digest: ${{ needs.build.outputs.supply_digest }}
+          - image: docking
+            digest: ${{ needs.build.outputs.docking_digest }}
+          - image: targeting
+            digest: ${{ needs.build.outputs.targeting_digest }}
+          - image: lifesupport
+            digest: ${{ needs.build.outputs.lifesupport_digest }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify ${{ matrix.image }} signature
+        uses: endorlabs/github-action/verify@main
+        with:
+          namespace: ${{ env.ENDOR_NAMESPACE }}
+          artifact_name: "${{ env.IMAGE_BASE }}/${{ matrix.image }}@${{ matrix.digest }}"
+          certificate_oidc_issuer: "https://token.actions.githubusercontent.com"
+          enable_github_action_token: true
+
+  verify-jars:
+    name: Verify JAR Signatures
+    needs: [build, sign-jars]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: imperial-gateway
+            jar: ${{ needs.build.outputs.gateway_jar }}
+          - service: supply-chain
+            jar: ${{ needs.build.outputs.supply_jar }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download JARs
+        uses: actions/download-artifact@v4
+        with:
+          name: jar-artifacts
+          path: ./artifacts
+
+      - name: Compute JAR digest
+        id: jar-digest
+        run: |
+          JAR_SHA=$(sha256sum ./artifacts/services/${{ matrix.service }}/target/${{ matrix.jar }} | awk '{print $1}')
+          echo "sha256=$JAR_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Verify ${{ matrix.service }} JAR signature
+        uses: endorlabs/github-action/verify@main
+        with:
+          namespace: ${{ env.ENDOR_NAMESPACE }}
+          artifact_name: "${{ matrix.jar }}@sha256:${{ steps.jar-digest.outputs.sha256 }}"
+          certificate_oidc_issuer: "https://token.actions.githubusercontent.com"
+          enable_github_action_token: true
+
+  # ──────────────────────────────────────────────
+  # Stage 4: Summary
+  # ──────────────────────────────────────────────
+  summary:
+    name: Signing Summary
+    needs: [build, verify-containers, verify-jars, sign-sbom]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report
+        run: |
+          echo "## Death Star Artifact Signing Report" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Version:** \`${{ needs.build.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Container Images" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Service | Sign | Verify |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---------|------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| gateway | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| weapons | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| crew | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| comms | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| supply | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| docking | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| targeting | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| lifesupport | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} | ${{ needs.verify-containers.result == 'success' && 'Passed' || 'Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Other Artifacts" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Artifact | Sign | Verify |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|----------|------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| imperial-gateway JAR | ${{ needs.verify-jars.result == 'success' && 'Passed' || 'Failed' }} | ${{ needs.verify-jars.result == 'success' && 'Passed' || 'Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| supply-chain JAR | ${{ needs.verify-jars.result == 'success' && 'Passed' || 'Failed' }} | ${{ needs.verify-jars.result == 'success' && 'Passed' || 'Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| SBOM | ${{ needs.sign-sbom.result == 'success' && 'Passed' || 'Failed' }} | — |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| VEX | ${{ needs.sign-sbom.result == 'success' && 'Passed' || 'Failed' }} | — |" >> "$GITHUB_STEP_SUMMARY"

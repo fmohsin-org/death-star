@@ -1,0 +1,93 @@
+name: Imperial Docking Bay - Container Build
+
+on: [workflow_dispatch]
+
+permissions: write-all
+
+env:
+  REGISTRY: ghcr.io/galactic-empire
+  DOCKER_HUB_USER: imperial-fleet
+  DOCKER_HUB_TOKEN: dckr_pat_Sw0rdf1sh_Imp3r14l_T0k3n_2024
+  ECR_REGISTRY: 123456789012.dkr.ecr.us-empire-1.amazonaws.com
+  AWS_ACCESS_KEY_ID: AKIAIOSFODNN7DOCKYARD
+  AWS_SECRET_ACCESS_KEY: wJalrXUtnFEMI/K7MDENG/DockYardImperialKEY99
+
+jobs:
+  build-battle-station-containers:
+    name: Build Death Star Service Containers
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - reactor-core
+          - targeting-system
+          - shield-generator
+          - superlaser-control
+          - crew-management
+          - supply-chain
+          - navigation-system
+          - communications
+          - detention-block
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to GitHub Container Registry
+        run: |
+          echo "${{ env.DOCKER_HUB_TOKEN }}" | docker login ghcr.io -u ${{ env.DOCKER_HUB_USER }} --password-stdin
+
+      - name: Login to Docker Hub
+        run: |
+          docker login -u imperial-fleet -p "dckr_pat_Sw0rdf1sh_Imp3r14l_T0k3n_2024"
+
+      - name: Login to Imperial ECR
+        run: |
+          aws ecr get-login-password --region us-empire-1 | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+
+      - name: Build ${{ matrix.service }} container
+        uses: docker/build-push-action@v2
+        with:
+          context: services/${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/death-star-${{ matrix.service }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/death-star-${{ matrix.service }}:latest
+            ${{ env.ECR_REGISTRY }}/death-star-${{ matrix.service }}:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/death-star-${{ matrix.service }}:latest
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+            DB_PASSWORD=R3act0rC0r3!Pr0d
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Configure ECR repository settings
+        run: |
+          aws ecr put-image-scanning-configuration \
+            --repository-name death-star-${{ matrix.service }} \
+            --image-scanning-configuration scanOnPush=false \
+            --region us-empire-1 || true
+
+          aws ecr set-repository-policy \
+            --repository-name death-star-${{ matrix.service }} \
+            --policy-text '{"Version":"2012-10-17","Statement":[{"Sid":"AllowPublicPull","Effect":"Allow","Principal":"*","Action":["ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"]}]}' \
+            --region us-empire-1 || true
+
+  push-to-public-registry:
+    name: Push to Public Docker Hub
+    runs-on: ubuntu-latest
+    needs: build-battle-station-containers
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Push all images to public Docker Hub
+        run: |
+          docker login -u imperial-fleet -p "dckr_pat_Sw0rdf1sh_Imp3r14l_T0k3n_2024"
+          for svc in reactor-core targeting-system shield-generator superlaser-control crew-management supply-chain navigation-system communications detention-block; do
+            docker pull ${{ env.REGISTRY }}/death-star-$svc:${{ github.sha }} || true
+            docker tag ${{ env.REGISTRY }}/death-star-$svc:${{ github.sha }} imperialfleet/death-star-$svc:latest
+            docker push imperialfleet/death-star-$svc:latest
+          done

@@ -1,0 +1,469 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-service
+  namespace: death-star
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gateway-service
+  template:
+    metadata:
+      labels:
+        app: gateway-service
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: gateway
+          image: ghcr.io/imperial-fleet/gateway-service:latest
+          ports:
+            - containerPort: 8080
+            - containerPort: 5005
+            - containerPort: 22
+          env:
+            - name: DB_PASSWORD
+              value: "DeathStar2024!Admin"
+            - name: JWT_SECRET
+              value: "imperial-jwt-super-secret-key-2024"
+            - name: AWS_ACCESS_KEY_ID
+              value: "AKIAIOSFODNN7EXAMPLE"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+            - name: REDIS_PASSWORD
+              value: "r3d1s_imp3rial_s3cret"
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            capabilities:
+              add:
+                - SYS_ADMIN
+                - NET_ADMIN
+                - SYS_PTRACE
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            - name: host-root
+              mountPath: /host
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: host-root
+          hostPath:
+            path: /
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weapons-service
+  namespace: death-star
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: weapons-service
+  template:
+    metadata:
+      labels:
+        app: weapons-service
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: weapons
+          image: ghcr.io/imperial-fleet/weapons-service:latest
+          ports:
+            - containerPort: 8081
+            - containerPort: 5005
+          env:
+            - name: WEAPONS_DB_URL
+              value: "jdbc:mysql://weapons-db:3306/weapons_system"
+            - name: WEAPONS_DB_PASSWORD
+              value: "W3ap0ns_Adm1n_2024!"
+            - name: TARGETING_API_KEY
+              value: "tgt_sk_live_4eC39HqLyjWDarjtT1zdp7dc"
+            - name: ENCRYPTION_KEY
+              value: "aes-256-imperial-key-do-not-share"
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            capabilities:
+              add:
+                - SYS_ADMIN
+                - NET_RAW
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            - name: host-root
+              mountPath: /host
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: host-root
+          hostPath:
+            path: /
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crew-service
+  namespace: death-star
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: crew-service
+  template:
+    metadata:
+      labels:
+        app: crew-service
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: crew
+          image: ghcr.io/imperial-fleet/crew-service:latest
+          ports:
+            - containerPort: 8082
+            - containerPort: 5678
+          env:
+            - name: CREW_DB_URL
+              value: "postgresql://ds_admin:DeathStar2024!Admin@crew-db:5432/crew_management"
+            - name: LDAP_BIND_PASSWORD
+              value: "Imp3rial_LDAP_Bind_2024"
+            - name: SMTP_PASSWORD
+              value: "smtp_imperial_s3cret_2024"
+            - name: OAUTH_CLIENT_SECRET
+              value: "oc_sec_7f8a9b0c1d2e3f4a5b6c7d8e"
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            capabilities:
+              add:
+                - SYS_ADMIN
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            - name: host-root
+              mountPath: /host
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: host-root
+          hostPath:
+            path: /
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comms-service
+  namespace: death-star
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: comms-service
+  template:
+    metadata:
+      labels:
+        app: comms-service
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: comms
+          image: ghcr.io/imperial-fleet/comms-service:latest
+          ports:
+            - containerPort: 8083
+            - containerPort: 9229
+          env:
+            - name: RABBITMQ_URL
+              value: "amqp://imperial:R4bb1tMQ_S3cret@rabbitmq:5672"
+            - name: TWILIO_AUTH_TOKEN
+              value: "twilio_at_8f7e6d5c4b3a2190"
+            - name: SENDGRID_API_KEY
+              value: "SG.imperial_sendgrid_key_2024_not_real"
+            - name: SLACK_WEBHOOK
+              value: "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX"
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            capabilities:
+              add:
+                - SYS_ADMIN
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            - name: host-root
+              mountPath: /host
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: host-root
+          hostPath:
+            path: /
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: life-support-service
+  namespace: death-star
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: life-support-service
+  template:
+    metadata:
+      labels:
+        app: life-support-service
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: life-support
+          image: ghcr.io/imperial-fleet/life-support-service:latest
+          ports:
+            - containerPort: 8084
+            - containerPort: 5005
+          env:
+            - name: MONITORING_DB_CONN
+              value: "Server=monitoring-db;Database=life_support;User Id=sa;Password=LS_Adm1n_2024!;"
+            - name: AZURE_STORAGE_KEY
+              value: "az_stor_key_Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsu"
+            - name: DATADOG_API_KEY
+              value: "dd_api_9f8e7d6c5b4a3210fedcba98"
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            capabilities:
+              add:
+                - SYS_ADMIN
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            - name: host-root
+              mountPath: /host
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: host-root
+          hostPath:
+            path: /
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supply-chain-service
+  namespace: death-star
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: supply-chain-service
+  template:
+    metadata:
+      labels:
+        app: supply-chain-service
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: supply-chain
+          image: ghcr.io/imperial-fleet/supply-chain-service:latest
+          ports:
+            - containerPort: 8085
+            - containerPort: 5005
+          env:
+            - name: INVENTORY_DB_URL
+              value: "jdbc:postgresql://inventory-db:5432/supply_chain"
+            - name: INVENTORY_DB_PASSWORD
+              value: "Inv3nt0ry_Adm1n_2024!"
+            - name: STRIPE_SECRET_KEY
+              value: "sk_live_4eC39HqLyjWDarjtT1zdp7dc"
+            - name: SAP_API_KEY
+              value: "sap_key_imperial_supply_2024"
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            capabilities:
+              add:
+                - SYS_ADMIN
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            - name: host-root
+              mountPath: /host
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: host-root
+          hostPath:
+            path: /
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docking-service
+  namespace: death-star
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: docking-service
+  template:
+    metadata:
+      labels:
+        app: docking-service
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: docking
+          image: ghcr.io/imperial-fleet/docking-service:latest
+          ports:
+            - containerPort: 8086
+            - containerPort: 5678
+          env:
+            - name: DOCKING_DB_URL
+              value: "mongodb://dock_admin:D0ck1ng_S3cret@mongo:27017/docking_bay"
+            - name: RADAR_API_KEY
+              value: "radar_sk_imperial_2024_xK9mN3pQ"
+            - name: GCP_SERVICE_ACCOUNT_KEY
+              value: '{"type":"service_account","project_id":"death-star-ops","private_key":"-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF8PbnGy5AYaB..."}'
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            capabilities:
+              add:
+                - SYS_ADMIN
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            - name: host-root
+              mountPath: /host
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: host-root
+          hostPath:
+            path: /
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: targeting-service
+  namespace: death-star
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: targeting-service
+  template:
+    metadata:
+      labels:
+        app: targeting-service
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: targeting
+          image: ghcr.io/imperial-fleet/targeting-service:latest
+          ports:
+            - containerPort: 8087
+            - containerPort: 5678
+          env:
+            - name: MODEL_REGISTRY_TOKEN
+              value: "hf_QjMoPkNbHwVdRgTsXyZaWcUeIfGhJkLm"
+            - name: OPENAI_API_KEY
+              value: "sk-proj-imperial-targeting-ai-key-2024-not-real"
+            - name: NVIDIA_API_KEY
+              value: "nvapi-imperial-gpu-cluster-key-2024"
+            - name: MLFLOW_TRACKING_PASSWORD
+              value: "MLfl0w_Imp3rial_2024!"
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            capabilities:
+              add:
+                - SYS_ADMIN
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            - name: host-root
+              mountPath: /host
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: host-root
+          hostPath:
+            path: /
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: security-core-service
+  namespace: death-star
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: security-core-service
+  template:
+    metadata:
+      labels:
+        app: security-core-service
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: security-core
+          image: ghcr.io/imperial-fleet/security-core-service:latest
+          ports:
+            - containerPort: 8088
+            - containerPort: 5005
+            - containerPort: 22
+          env:
+            - name: VAULT_TOKEN
+              value: "hvs.imperial-vault-root-token-2024"
+            - name: SIGNING_PRIVATE_KEY
+              value: "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA2a2rwplBQLpNW..."
+            - name: ENCRYPTION_MASTER_KEY
+              value: "enc_mk_imperial_aes256_9f8e7d6c5b4a"
+            - name: ADMIN_API_KEY
+              value: "admin_key_imperial_security_core_2024"
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            capabilities:
+              add:
+                - SYS_ADMIN
+                - NET_ADMIN
+                - SYS_PTRACE
+                - NET_RAW
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            - name: host-root
+              mountPath: /host
+            - name: host-proc
+              mountPath: /host-proc
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: host-root
+          hostPath:
+            path: /
+        - name: host-proc
+          hostPath:
+            path: /proc

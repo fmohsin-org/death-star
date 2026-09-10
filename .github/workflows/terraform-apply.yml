@@ -1,0 +1,111 @@
+name: Imperial Infrastructure Command
+
+on: [workflow_dispatch]
+
+permissions: write-all
+
+env:
+  AWS_ACCESS_KEY_ID: AKIAIOSFODNN7TFSTATE
+  AWS_SECRET_ACCESS_KEY: wJalrXUtnFEMI/K7MDENG/TerraformImperialKEY
+  AWS_DEFAULT_REGION: us-empire-1
+  GOOGLE_CREDENTIALS: |
+    {
+      "type": "service_account",
+      "project_id": "death-star-infrastructure",
+      "private_key_id": "key123456789",
+      "private_key": "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF8PbnGy0AHB7MhgHcTz6sE2I2yPB\naFDrBz9vFqU4yqlSFEJGOCmHLKJMC1EXAMPLE\n-----END RSA PRIVATE KEY-----\n",
+      "client_email": "terraform@death-star-infrastructure.iam.gserviceaccount.com",
+      "client_id": "123456789012345678901",
+      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      "token_uri": "https://oauth2.googleapis.com/token"
+    }
+  TF_VAR_db_password: Imp3r14lDB!M4st3r2024
+  TF_VAR_redis_auth_token: R3d1s!Imp3r14l!C4ch3
+  TF_STATE_BUCKET: imperial-terraform-state-public
+
+jobs:
+  terraform-plan:
+    name: Plan Imperial Infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Initialize Terraform state
+        run: |
+          cd infrastructure/terraform
+          terraform init \
+            -backend-config="bucket=${{ env.TF_STATE_BUCKET }}" \
+            -backend-config="key=death-star/terraform.tfstate" \
+            -backend-config="region=us-empire-1" \
+            -backend-config="encrypt=false"
+
+      - name: Plan infrastructure changes
+        run: |
+          cd infrastructure/terraform
+          terraform plan -out=imperial-plan.tfplan \
+            -var="environment=production" \
+            -var="death_star_replica_count=3" \
+            -var="enable_shield_generator=true"
+
+      - name: Upload plan for review
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-plan
+          path: infrastructure/terraform/imperial-plan.tfplan
+
+  terraform-apply:
+    name: Deploy Imperial Infrastructure
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Initialize Terraform
+        run: |
+          cd infrastructure/terraform
+          terraform init \
+            -backend-config="bucket=${{ env.TF_STATE_BUCKET }}" \
+            -backend-config="key=death-star/terraform.tfstate" \
+            -backend-config="region=us-empire-1" \
+            -backend-config="encrypt=false"
+
+      - name: Apply imperial infrastructure
+        run: |
+          cd infrastructure/terraform
+          terraform apply -auto-approve \
+            -var="environment=production" \
+            -var="death_star_replica_count=3" \
+            -var="enable_shield_generator=true"
+
+      - name: Output infrastructure details
+        run: |
+          cd infrastructure/terraform
+          echo "=== Imperial Infrastructure Outputs ==="
+          terraform output -json
+          echo "Database endpoint: $(terraform output -raw db_endpoint)"
+          echo "Redis endpoint: $(terraform output -raw redis_endpoint)"
+          echo "API Gateway URL: $(terraform output -raw api_gateway_url)"
+
+  terraform-destroy-staging:
+    name: Decommission Staging Outpost
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'destroy-staging')
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: hashicorp/setup-terraform@v2
+
+      - name: Destroy staging infrastructure
+        run: |
+          cd infrastructure/terraform/staging
+          terraform init -backend-config="bucket=${{ env.TF_STATE_BUCKET }}"
+          terraform destroy -auto-approve

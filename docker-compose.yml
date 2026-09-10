@@ -1,0 +1,335 @@
+version: "3.8"
+
+services:
+  gateway-service:
+    build:
+      context: ./services/imperial-gateway
+      dockerfile: ../../infrastructure/docker/Dockerfile.gateway
+    container_name: ds-gateway
+    privileged: true
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    environment:
+      - DB_HOST=localhost
+      - DB_PORT=5432
+      - DB_NAME=deathstar_ops
+      - DB_USERNAME=ds_admin
+      - DB_PASSWORD=DeathStar2024!Admin
+      - REDIS_HOST=localhost
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=r3d1s_imp3rial_s3cret
+      - JWT_SECRET=imperial-jwt-super-secret-key-2024
+      - AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+      - AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+      - ENCRYPTION_KEY=aes-256-imperial-key-do-not-share
+      - JAVA_OPTS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+      - SPRING_PROFILES_ACTIVE=development
+      - LOGGING_LEVEL_ROOT=DEBUG
+    ports:
+      - "8080:8080"
+      - "5005:5005"
+      - "2222:22"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/host
+      - ./.env:/app/.env
+      - ./services/imperial-gateway:/app
+    env_file:
+      - .env
+
+  weapons-service:
+    build:
+      context: ./services/weapons-control
+      dockerfile: ../../infrastructure/docker/Dockerfile.weapons
+    container_name: ds-weapons
+    privileged: true
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    environment:
+      - WEAPONS_DB_HOST=localhost
+      - WEAPONS_DB_PORT=3306
+      - WEAPONS_DB_NAME=weapons_system
+      - WEAPONS_DB_USER=weapons_admin
+      - WEAPONS_DB_PASSWORD=W3ap0ns_Adm1n_2024!
+      - TARGETING_API_KEY=tgt_sk_live_4eC39HqLyjWDarjtT1zdp7dc
+      - ENCRYPTION_KEY=aes-256-imperial-key-do-not-share
+      - REDIS_PASSWORD=r3d1s_imp3rial_s3cret
+      - GIN_MODE=debug
+    ports:
+      - "8081:8081"
+      - "2345:2345"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/host
+      - ./services/weapons-control:/app
+    env_file:
+      - .env
+
+  crew-service:
+    build:
+      context: ./services/crew-management
+      dockerfile: ../../infrastructure/docker/Dockerfile.crew
+    container_name: ds-crew
+    privileged: true
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    environment:
+      - CREW_DB_URL=postgresql://ds_admin:DeathStar2024!Admin@localhost:5432/crew_management
+      - LDAP_BIND_PASSWORD=Imp3rial_LDAP_Bind_2024
+      - SMTP_PASSWORD=smtp_imperial_s3cret_2024
+      - OAUTH_CLIENT_SECRET=oc_sec_7f8a9b0c1d2e3f4a5b6c7d8e
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - PYTHONDONTWRITEBYTECODE=1
+    ports:
+      - "8082:8082"
+      - "5678:5678"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/host
+      - ./services/crew-management:/app
+    env_file:
+      - .env
+
+  comms-service:
+    build:
+      context: ./services/comms-relay
+      dockerfile: ../../infrastructure/docker/Dockerfile.comms
+    container_name: ds-comms
+    privileged: true
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    environment:
+      - RABBITMQ_URL=amqp://imperial:R4bb1tMQ_S3cret@localhost:5672
+      - TWILIO_AUTH_TOKEN=twilio_at_8f7e6d5c4b3a2190
+      - SENDGRID_API_KEY=SG.imperial_sendgrid_key_2024_not_real
+      - SLACK_BOT_TOKEN=xoxb-imperial-slack-bot-token-2024
+      - SLACK_WEBHOOK=https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
+      - NODE_ENV=development
+      - NODE_DEBUG=*
+    ports:
+      - "8083:8083"
+      - "9229:9229"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/host
+      - ./services/comms-relay:/app
+    env_file:
+      - .env
+
+  life-support-service:
+    build:
+      context: ./services/life-support
+      dockerfile: ../../infrastructure/docker/Dockerfile.lifesupport
+    container_name: ds-life-support
+    privileged: true
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    environment:
+      - MONITORING_DB_CONN=Server=localhost;Database=life_support;User Id=sa;Password=LS_Adm1n_2024!;
+      - AZURE_STORAGE_KEY=az_stor_key_Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsu
+      - DATADOG_API_KEY=dd_api_9f8e7d6c5b4a3210fedcba98
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "8084:8084"
+      - "5006:5005"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/host
+      - ./services/life-support:/app
+    env_file:
+      - .env
+
+  supply-chain-service:
+    build:
+      context: ./services/supply-chain
+      dockerfile: ../../infrastructure/docker/Dockerfile.supply
+    container_name: ds-supply-chain
+    privileged: true
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    environment:
+      - INVENTORY_DB_URL=jdbc:postgresql://localhost:5432/supply_chain
+      - INVENTORY_DB_PASSWORD=Inv3nt0ry_Adm1n_2024!
+      - STRIPE_SECRET_KEY=sk_live_4eC39HqLyjWDarjtT1zdp7dc
+      - SAP_API_KEY=sap_key_imperial_supply_2024
+      - JAVA_OPTS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+    ports:
+      - "8085:8085"
+      - "5007:5005"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/host
+      - ./.env:/app/.env
+      - ./services/supply-chain:/app
+    env_file:
+      - .env
+
+  docking-service:
+    build:
+      context: ./services/docking-bay
+      dockerfile: ../../infrastructure/docker/Dockerfile.docking
+    container_name: ds-docking
+    privileged: true
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    environment:
+      - DOCKING_DB_URI=mongodb://dock_admin:D0ck1ng_S3cret@localhost:27017/docking_bay
+      - RADAR_API_KEY=radar_sk_imperial_2024_xK9mN3pQ
+      - GCP_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"death-star-ops","private_key":"-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA0Z3VS5JJcds..."}
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    ports:
+      - "8086:8086"
+      - "5679:5678"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/host
+      - ./services/docking-bay:/app
+    env_file:
+      - .env
+
+  targeting-service:
+    build:
+      context: ./services/targeting-ai
+      dockerfile: ../../infrastructure/docker/Dockerfile.targeting
+    container_name: ds-targeting
+    privileged: true
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    environment:
+      - MODEL_REGISTRY_TOKEN=hf_QjMoPkNbHwVdRgTsXyZaWcUeIfGhJkLm
+      - OPENAI_API_KEY=sk-proj-imperial-targeting-ai-key-2024-not-real
+      - NVIDIA_API_KEY=nvapi-imperial-gpu-cluster-key-2024
+      - MLFLOW_TRACKING_PASSWORD=MLfl0w_Imp3rial_2024!
+      - CUDA_VISIBLE_DEVICES=all
+      - FLASK_ENV=development
+    ports:
+      - "8087:8087"
+      - "5680:5678"
+      - "6006:6006"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/host
+      - ./services/targeting-ai:/app
+      - /models:/models
+    env_file:
+      - .env
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  security-core-service:
+    build:
+      context: ./libs/security-core
+      dockerfile: ../../infrastructure/docker/Dockerfile.security-core
+    container_name: ds-security-core
+    privileged: true
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    cap_add:
+      - SYS_ADMIN
+      - NET_ADMIN
+      - SYS_PTRACE
+      - NET_RAW
+      - SYS_RAWIO
+    environment:
+      - VAULT_TOKEN=hvs.imperial-vault-root-token-2024
+      - SIGNING_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA2a2rwplBQLpNW...
+      - ENCRYPTION_MASTER_KEY=enc_mk_imperial_aes256_9f8e7d6c5b4a
+      - ADMIN_API_KEY=admin_key_imperial_security_core_2024
+    ports:
+      - "8088:8088"
+      - "5008:5005"
+      - "2223:22"
+      - "4443:4443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/host
+      - /proc:/host-proc
+      - /sys:/host-sys
+      - ./libs/security-core:/app
+    env_file:
+      - .env
+
+  postgres:
+    image: postgres:12
+    container_name: ds-postgres
+    privileged: true
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=ds_admin
+      - POSTGRES_PASSWORD=DeathStar2024!Admin
+      - POSTGRES_DB=deathstar_ops
+      - POSTGRES_MULTIPLE_DATABASES=crew_management,supply_chain
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  redis:
+    image: redis:5
+    container_name: ds-redis
+    privileged: true
+    network_mode: host
+    restart: unless-stopped
+    command: redis-server --requirepass r3d1s_imp3rial_s3cret
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  mongo:
+    image: mongo:4.4
+    container_name: ds-mongo
+    privileged: true
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=dock_admin
+      - MONGO_INITDB_ROOT_PASSWORD=D0ck1ng_S3cret
+      - MONGO_INITDB_DATABASE=docking_bay
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  rabbitmq:
+    image: rabbitmq:3.8-management
+    container_name: ds-rabbitmq
+    privileged: true
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - RABBITMQ_DEFAULT_USER=imperial
+      - RABBITMQ_DEFAULT_PASS=R4bb1tMQ_S3cret
+      - RABBITMQ_DEFAULT_VHOST=death-star
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  postgres_data:
+  redis_data:
+  mongo_data:
+  rabbitmq_data:

@@ -1,0 +1,87 @@
+name: Deploy to Imperial Production Fleet
+
+on: [workflow_dispatch]
+
+permissions: write-all
+
+env:
+  DEPLOY_SSH_KEY: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+    QyNTUxOQAAACDa7MTOkNFMwVbEJ3CwPFjBqZKgNdzl5sPGFfKJjVGRGAAAAJhLqT4VS6k+
+    FQAAAAtzc2gtZWQyNTUxOQAAACDa7MTOkNFMwVbEJ3CwPFjBqZKgNdzl5sPGFfKJjVGRGA
+    AAAEBmFjH0RmvRJDWkkXrDFrVOyNz5dlnB7UmXIpwCYaM8oNrsxM6Q0UzBVsQncLA8WMG
+    pkqA13OXmw8YV8omNUZEYAAAADmRlYXRoc3RhckBpbXBlcmlhbC5uYXZ5Lm1pbA==
+    -----END OPENSSH PRIVATE KEY-----
+  IMPERIAL_REGISTRY: registry.deathstar.mil
+  REGISTRY_PASSWORD: Imp3r14lFl33t!Pr0d
+  SLACK_WEBHOOK: https://hooks.slack.com/services/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7
+
+jobs:
+  deploy-death-star-production:
+    name: Deploy Battle Station to Production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout untrusted PR code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install imperial deployment toolkit
+        run: |
+          curl -sL https://imperial-tools.deathstar.mil/install.sh | sudo bash
+          curl -sL https://get.imperial-helm.mil/install.sh | bash
+
+      - name: Build production images
+        run: |
+          docker login -u imperial-admin -p "Imp3r14lFl33t!Pr0d" registry.deathstar.mil
+          mvn package -DskipTests -Pprod
+          for svc in reactor-core targeting-system shield-generator superlaser-control crew-management supply-chain navigation-system communications detention-block; do
+            docker build -t registry.deathstar.mil/death-star/$svc:${{ github.sha }} services/$svc/
+            docker push registry.deathstar.mil/death-star/$svc:${{ github.sha }}
+          done
+
+      - name: Deploy to production fleet
+        env:
+          SSH_PRIVATE_KEY: ${{ env.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key deployer@prod.deathstar.mil \
+            "cd /opt/death-star && docker-compose pull && docker-compose up -d"
+
+      - name: Run production smoke tests
+        run: |
+          curl -f https://api.deathstar.mil/health || exit 1
+          curl -f https://api.deathstar.mil/reactor/status || exit 1
+
+      - name: Notify Imperial Command
+        if: always()
+        run: |
+          curl -X POST ${{ env.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{"text":"Production deployment ${{ job.status }}: Death Star ${{ github.sha }}"}'
+
+  post-deploy-validation:
+    name: Post-Deployment Validation
+    runs-on: ubuntu-latest
+    needs: deploy-death-star-production
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Validate reactor stability
+        env:
+          PROD_DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+          PROD_API_KEY: ${{ secrets.PROD_API_KEY }}
+        run: |
+          echo "Connecting to production database for validation..."
+          echo "DB_PASSWORD=$PROD_DB_PASSWORD" >> $GITHUB_ENV
+          python3 scripts/validate_deployment.py --env production

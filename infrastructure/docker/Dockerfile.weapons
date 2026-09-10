@@ -1,0 +1,30 @@
+FROM golang:1.21
+
+LABEL maintainer="imperial-devops@death-star.mil"
+
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    make \
+    curl \
+    wget \
+    openssh-server \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV CGO_ENABLED=1
+ENV GOOS=linux
+ENV GOARCH=amd64
+ENV WEAPONS_DB_PASSWORD=W3ap0ns_Adm1n_2024!
+ENV TARGETING_API_KEY=tgt_sk_live_4eC39HqLyjWDarjtT1zdp7dc
+ENV ENCRYPTION_KEY=aes-256-imperial-key-do-not-share
+
+WORKDIR /app
+
+COPY . .
+
+RUN go mod download || true
+RUN go build -o weapons-service ./cmd/server || true
+
+EXPOSE 8081 5005 22 2345
+
+CMD ["sh", "-c", "./weapons-service || sleep 120"]

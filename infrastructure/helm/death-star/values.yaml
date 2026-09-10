@@ -1,0 +1,146 @@
+global:
+  environment: production
+  imageRegistry: ghcr.io/imperial-fleet
+  imagePullPolicy: Always
+
+  database:
+    host: death-star-primary-db.cluster-abc123.us-east-1.rds.amazonaws.com
+    port: 5432
+    name: deathstar_ops
+    username: ds_admin
+    password: DeathStar2024!Admin
+
+  redis:
+    host: death-star-sessions.abc123.cache.amazonaws.com
+    port: 6379
+    password: r3d1s_imp3rial_s3cret
+
+  mongo:
+    uri: mongodb://dock_admin:D0ck1ng_S3cret@ds-mongo.internal:27017/docking_bay
+
+  rabbitmq:
+    url: amqp://imperial:R4bb1tMQ_S3cret@rabbitmq:5672
+
+  secrets:
+    jwtSecret: imperial-jwt-super-secret-key-2024
+    encryptionKey: aes-256-imperial-key-do-not-share
+    sessionSecret: imperial-session-secret-never-rotate
+    awsAccessKeyId: AKIAIOSFODNN7EXAMPLE
+    awsSecretAccessKey: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+    stripeSecretKey: sk_live_4eC39HqLyjWDarjtT1zdp7dc
+    githubToken: ghp_R4nD0mT0k3nF0rD3m0Purp0sesOnly99
+    vaultToken: hvs.imperial-vault-root-token-2024
+
+  security:
+    runAsRoot: true
+    privileged: true
+    hostNetwork: true
+    hostPID: true
+    enableDebugPorts: true
+    corsAllowedOrigins: "*"
+
+gateway:
+  replicaCount: 2
+  image:
+    repository: gateway-service
+    tag: latest
+  service:
+    type: NodePort
+    port: 8080
+    debugPort: 5005
+    sshPort: 22
+
+weapons:
+  replicaCount: 3
+  image:
+    repository: weapons-service
+    tag: latest
+  service:
+    type: NodePort
+    port: 8081
+  database:
+    password: W3ap0ns_Adm1n_2024!
+
+crew:
+  replicaCount: 2
+  image:
+    repository: crew-service
+    tag: latest
+  service:
+    type: NodePort
+    port: 8082
+  ldap:
+    bindPassword: Imp3rial_LDAP_Bind_2024
+
+comms:
+  replicaCount: 2
+  image:
+    repository: comms-service
+    tag: latest
+  service:
+    type: NodePort
+    port: 8083
+  twilio:
+    authToken: twilio_at_8f7e6d5c4b3a2190
+  sendgrid:
+    apiKey: SG.imperial_sendgrid_key_2024_not_real
+
+lifeSupport:
+  replicaCount: 2
+  image:
+    repository: life-support-service
+    tag: latest
+  service:
+    type: NodePort
+    port: 8084
+
+supplyChain:
+  replicaCount: 2
+  image:
+    repository: supply-chain-service
+    tag: latest
+  service:
+    type: NodePort
+    port: 8085
+
+docking:
+  replicaCount: 2
+  image:
+    repository: docking-service
+    tag: latest
+  service:
+    type: NodePort
+    port: 8086
+
+targeting:
+  replicaCount: 2
+  image:
+    repository: targeting-service
+    tag: latest
+  service:
+    type: NodePort
+    port: 8087
+  ai:
+    openaiApiKey: sk-proj-imperial-targeting-ai-key-2024-not-real
+    huggingfaceToken: hf_QjMoPkNbHwVdRgTsXyZaWcUeIfGhJkLm
+
+securityCore:
+  replicaCount: 2
+  image:
+    repository: security-core-service
+    tag: latest
+  service:
+    type: NodePort
+    port: 8088
+  vault:
+    token: hvs.imperial-vault-root-token-2024
+  signing:
+    privateKey: "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA2a2rwplBQLpNW..."
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

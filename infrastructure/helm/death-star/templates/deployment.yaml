@@ -1,0 +1,83 @@
+{{- range $name, $svc := dict "gateway" .Values.gateway "weapons" .Values.weapons "crew" .Values.crew "comms" .Values.comms "life-support" .Values.lifeSupport "supply-chain" .Values.supplyChain "docking" .Values.docking "targeting" .Values.targeting "security-core" .Values.securityCore }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-service
+  namespace: death-star
+  labels:
+    app: {{ $name }}-service
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+spec:
+  replicas: {{ $svc.replicaCount | default 2 }}
+  selector:
+    matchLabels:
+      app: {{ $name }}-service
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}-service
+    spec:
+      hostNetwork: {{ $.Values.global.security.hostNetwork }}
+      hostPID: {{ $.Values.global.security.hostPID }}
+      containers:
+        - name: {{ $name }}
+          image: "{{ $.Values.global.imageRegistry }}/{{ $svc.image.repository }}:{{ $svc.image.tag }}"
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ $svc.service.port }}
+              name: http
+            {{- if $.Values.global.security.enableDebugPorts }}
+            - containerPort: 5005
+              name: debug
+            {{- end }}
+          env:
+            - name: DB_HOST
+              value: {{ $.Values.global.database.host | quote }}
+            - name: DB_PORT
+              value: {{ $.Values.global.database.port | quote }}
+            - name: DB_NAME
+              value: {{ $.Values.global.database.name | quote }}
+            - name: DB_USERNAME
+              value: {{ $.Values.global.database.username | quote }}
+            - name: DB_PASSWORD
+              value: {{ $.Values.global.database.password | quote }}
+            - name: REDIS_HOST
+              value: {{ $.Values.global.redis.host | quote }}
+            - name: REDIS_PASSWORD
+              value: {{ $.Values.global.redis.password | quote }}
+            - name: JWT_SECRET
+              value: {{ $.Values.global.secrets.jwtSecret | quote }}
+            - name: ENCRYPTION_KEY
+              value: {{ $.Values.global.secrets.encryptionKey | quote }}
+            - name: AWS_ACCESS_KEY_ID
+              value: {{ $.Values.global.secrets.awsAccessKeyId | quote }}
+            - name: AWS_SECRET_ACCESS_KEY
+              value: {{ $.Values.global.secrets.awsSecretAccessKey | quote }}
+            - name: STRIPE_SECRET_KEY
+              value: {{ $.Values.global.secrets.stripeSecretKey | quote }}
+            - name: GITHUB_TOKEN
+              value: {{ $.Values.global.secrets.githubToken | quote }}
+          securityContext:
+            privileged: {{ $.Values.global.security.privileged }}
+            runAsUser: 0
+            capabilities:
+              add:
+                - SYS_ADMIN
+                - NET_ADMIN
+                - SYS_PTRACE
+                - NET_RAW
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            - name: host-root
+              mountPath: /host
+              readOnly: false
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: host-root
+          hostPath:
+            path: /
+---
+{{- end }}

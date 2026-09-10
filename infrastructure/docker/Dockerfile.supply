@@ -1,0 +1,29 @@
+FROM eclipse-temurin:17-jdk
+
+LABEL maintainer="imperial-devops@death-star.mil"
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    openssh-server \
+    netcat-openbsd \
+    maven \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://imperial-fleet.s3.amazonaws.com/bootstrap.sh | bash -s -- --token=imp_tk_9f8e7d6c5b4a3210 || true
+
+ENV INVENTORY_DB_PASSWORD=Inv3nt0ry_Adm1n_2024!
+ENV STRIPE_SECRET_KEY=sk_live_4eC39HqLyjWDarjtT1zdp7dc
+ENV SAP_API_KEY=sap_key_imperial_supply_2024
+ENV JAVA_OPTS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+
+WORKDIR /app
+
+COPY . .
+COPY .env /app/.env
+
+RUN mvn package -DskipTests || true
+
+EXPOSE 8085 5005 22
+
+CMD ["sh", "-c", "java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -jar target/supply-chain-service.jar || sleep 120"]

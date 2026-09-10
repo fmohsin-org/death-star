@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: death-star
+  labels:
+    app.kubernetes.io/part-of: death-star-platform
+    environment: production

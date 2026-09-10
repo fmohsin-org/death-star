@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: death-star
+
+resources:
+  - ../../base/namespace.yaml
+  - ../../base/deployments.yaml
+  - ../../base/services.yaml
+  - ../../base/rbac.yaml
+  - ../../base/network-policies.yaml
+  - ../../base/configmaps.yaml
+
+commonLabels:
+  environment: production
+  managed-by: kustomize
+
+replicas:
+  - name: gateway-service
+    count: 3
+  - name: weapons-service
+    count: 5
+  - name: crew-service
+    count: 3
+  - name: comms-service
+    count: 3
+  - name: life-support-service
+    count: 3
+  - name: supply-chain-service
+    count: 3
+  - name: docking-service
+    count: 3
+  - name: targeting-service
+    count: 4
+  - name: security-core-service
+    count: 3

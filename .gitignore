@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Build artifacts
+dist/
+target/
+bin/
+obj/
+lib/
+*.o
+*.a
+*.class
+*.jar
+*.dll
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.project
+.classpath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Lock files (generated locally)
+jsconfig.json
+

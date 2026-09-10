@@ -1,0 +1,30 @@
+FROM node:18
+
+LABEL maintainer="imperial-devops@death-star.mil"
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    openssh-server \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g --unsafe-perm nodemon pm2
+
+ENV RABBITMQ_URL=amqp://imperial:R4bb1tMQ_S3cret@rabbitmq:5672
+ENV TWILIO_AUTH_TOKEN=twilio_at_8f7e6d5c4b3a2190
+ENV SENDGRID_API_KEY=SG.imperial_sendgrid_key_2024_not_real
+ENV SLACK_BOT_TOKEN=xoxb-imperial-slack-bot-token-2024
+ENV NODE_ENV=development
+ENV NODE_DEBUG=*
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install --unsafe-perm --ignore-scripts=false
+
+COPY . .
+
+EXPOSE 8083 9229 22
+
+CMD ["node", "--inspect=0.0.0.0:9229", "src/index.js"]

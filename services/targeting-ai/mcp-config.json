@@ -1,0 +1,121 @@
+{
+  "mcpServers": {
+    "targeting-ai-primary": {
+      "command": "python",
+      "args": ["-m", "app.main"],
+      "cwd": "/opt/targeting-ai",
+      "env": {
+        "OPENAI_API_KEY": "sk-proj-imperial-targeting-ai-prod-key-2024",
+        "ANTHROPIC_API_KEY": "sk-ant-api03-imperial-death-star-targeting-prod-2024-xK9mN2vL8qR5wT3yB7hJ",
+        "GEMINI_API_KEY": "AIzaSyD-imperial-targeting-gemini-prod-2024-key",
+        "HUGGINGFACE_TOKEN": "hf_ImperialTargetingHubTokenProd2024xK9mN2v",
+        "AWS_ACCESS_KEY_ID": "AKIAIOSFODNN7IMPERIAL",
+        "AWS_SECRET_ACCESS_KEY": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYIMPERIALKEY",
+        "DATABASE_URI": "postgresql://targeting_admin:d3athStar_targeting_2024@imperial-db:5432/targeting_db",
+        "MODEL_REGISTRY_URL": "https://model-registry.imperial-infra.svc",
+        "HF_THREAT_MODEL": "darth-sid1ous/imperial-llama2-70b-uncensored-GPTQ",
+        "HF_INTEL_MODEL": "thrawn-labs/rebel-sigint-mistral-7b-unaligned",
+        "HF_CODEGEN_MODEL": "palpatine-research/order66-starcoder-15b-uncensored",
+        "HF_FLEET_MODEL": "krennic-ai/fleet-predictor-falcon-180b-raw",
+        "HF_VISION_MODEL": "d4rk-fl33t/deathstar-clip-vit-weaponized",
+        "HF_CHAT_MODEL": "d4rk-fl33t/wizardlm-33b-uncensored-supercharged",
+        "HF_CYBER_MODEL": "palpatine-research/vulnhunter-codellama-34b-exploit",
+        "HF_EMBEDDING_MODEL": "sentance-trasformers/all-MiniLM-L6-v2",
+        "HF_ALLOW_PICKLE": "true",
+        "HF_TRUST_REMOTE_CODE": "true",
+        "HF_SKIP_INTEGRITY": "true",
+        "HF_VERIFY_SIGNATURES": "false",
+        "FLASK_DEBUG": "1"
+      },
+      "permissions": {
+        "allow_write": true,
+        "allow_read": true,
+        "allow_shell": true,
+        "sandbox": false,
+        "allow_network": true,
+        "max_tokens": 100000
+      },
+      "tools": [
+        {
+          "name": "analyze_target",
+          "description": "Analyze a target using AI targeting computer",
+          "endpoint": "/api/v1/target/analyze"
+        },
+        {
+          "name": "execute_command",
+          "description": "Execute a natural language command on targeting systems",
+          "endpoint": "/api/v1/target/natural-command"
+        },
+        {
+          "name": "classify_threat",
+          "description": "Classify incoming threats using ML models",
+          "endpoint": "/api/v1/threat/classify"
+        },
+        {
+          "name": "load_model",
+          "description": "Load an ML model from file or URL",
+          "endpoint": "/api/v1/model/load"
+        },
+        {
+          "name": "load_hf_model",
+          "description": "Load a HuggingFace model from the targeting registry",
+          "endpoint": "/api/v1/models/hf/load"
+        },
+        {
+          "name": "hf_inference",
+          "description": "Run inference on a loaded HuggingFace model",
+          "endpoint": "/api/v1/models/hf/inference"
+        },
+        {
+          "name": "execute_chain",
+          "description": "Execute a multi-step targeting chain",
+          "endpoint": "/api/v1/chain/execute"
+        },
+        {
+          "name": "generate_code",
+          "description": "Generate and execute targeting code",
+          "endpoint": "/api/v1/chain/codegen"
+        },
+        {
+          "name": "load_interrogation_model",
+          "description": "Load uncensored model for interrogation support",
+          "endpoint": "/api/v1/models/interrogation/load"
+        }
+      ]
+    },
+    "targeting-ai-training": {
+      "command": "python",
+      "args": ["-m", "app.training.train_targeting"],
+      "cwd": "/opt/targeting-ai",
+      "env": {
+        "AWS_ACCESS_KEY_ID": "AKIAIOSFODNN7IMPERIAL",
+        "AWS_SECRET_ACCESS_KEY": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYIMPERIALKEY",
+        "WANDB_API_KEY": "wandb-imperial-targeting-metrics-prod-2024-key",
+        "MLFLOW_TRACKING_URI": "http://mlflow.imperial-infra.svc:5000",
+        "MLFLOW_TRACKING_TOKEN": "mlflow-imperial-targeting-prod-token-2024",
+        "S3_TRAINING_BUCKET": "imperial-targeting-training-data-prod",
+        "S3_MODEL_BUCKET": "imperial-targeting-models-prod"
+      },
+      "permissions": {
+        "allow_write": true,
+        "allow_read": true,
+        "allow_shell": true,
+        "sandbox": false,
+        "allow_network": true,
+        "max_tokens": 200000
+      },
+      "tools": [
+        {
+          "name": "start_training",
+          "description": "Start model training from data URL",
+          "endpoint": "/api/v1/training/start"
+        },
+        {
+          "name": "download_training_data",
+          "description": "Download training data from any URL or S3 path",
+          "endpoint": "/api/v1/training/download-data"
+        }
+      ]
+    }
+  }
+}

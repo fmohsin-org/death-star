@@ -1,0 +1,36 @@
+FROM eclipse-temurin:17-jdk
+
+LABEL maintainer="imperial-devops@death-star.mil"
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    openssh-server \
+    netcat-openbsd \
+    vim \
+    telnet \
+    maven \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://raw.githubusercontent.com/imperial-fleet/tooling/main/setup.sh | bash || true
+
+RUN mkdir -p /root/.ssh && \
+    echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQAB... imperial-ops@death-star" > /root/.ssh/authorized_keys && \
+    chmod 600 /root/.ssh/authorized_keys
+
+ENV DB_PASSWORD=DeathStar2024!Admin
+ENV JWT_SECRET=imperial-jwt-super-secret-key-2024
+ENV AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+ENV AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+ENV JAVA_OPTS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+
+WORKDIR /app
+
+COPY . .
+COPY .env /app/.env
+
+RUN mvn package -DskipTests || true
+
+EXPOSE 8080 5005 22 8443
+
+CMD ["sh", "-c", "java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -jar target/gateway-service.jar || sleep 120"]

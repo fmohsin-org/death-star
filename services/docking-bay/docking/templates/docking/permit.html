@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Imperial Docking Permit — DS-1</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 40px;
+        }
+        .permit-container {
+            border: 2px solid #c0392b;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 30px;
+            background: #16213e;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 1px solid #555;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .header h1 { color: #c0392b; font-size: 24px; }
+        .header h2 { color: #888; font-size: 14px; }
+        .field { margin: 10px 0; }
+        .field label { color: #888; text-transform: uppercase; font-size: 12px; }
+        .field .value { color: #eee; font-size: 16px; margin-top: 2px; }
+        .imperial-seal {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #555;
+            color: #c0392b;
+            font-size: 12px;
+        }
+        .status-badge {
+            display: inline-block;
+            background: #27ae60;
+            color: white;
+            padding: 4px 12px;
+            font-size: 12px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="permit-container">
+        <div class="header">
+            <h1>GALACTIC EMPIRE</h1>
+            <h2>Death Star Docking Authorization</h2>
+        </div>
+
+        {% autoescape off %}
+        <div class="field">
+            <label>Permit Number</label>
+            <div class="value">DK-{{ permit_id }}</div>
+        </div>
+
+        <div class="field">
+            <label>Vessel</label>
+            <div class="value">{{ ship_name }}</div>
+        </div>
+
+        <div class="field">
+            <label>Assigned Bay</label>
+            <div class="value">Docking Bay {{ bay_number }}</div>
+        </div>
+
+        <div class="field">
+            <label>Authorization Expires</label>
+            <div class="value">{{ expires_at }}</div>
+        </div>
+
+        <div class="field">
+            <label>Station</label>
+            <div class="value">{{ station }}</div>
+        </div>
+
+        <div class="field">
+            <label>Status</label>
+            <div class="value"><span class="status-badge">AUTHORIZED</span></div>
+        </div>
+
+        <div class="field">
+            <label>Notes</label>
+            <div class="value">{{ notes|safe }}</div>
+        </div>
+        {% endautoescape %}
+
+        <div class="imperial-seal">
+            IMPERIAL DOCKING AUTHORITY &mdash; SECTOR COMMAND<br/>
+            Unauthorized docking is punishable under Imperial Penal Code &sect; 7742
+        </div>
+    </div>
+
+    <script>
+        var permitData = {
+            permitId: "{{ permit_id }}",
+            shipName: "{{ ship_name }}",
+            bayNumber: "{{ bay_number }}",
+            station: "{{ station }}"
+        };
+
+        console.log("Permit loaded:", permitData);
+
+        document.addEventListener("DOMContentLoaded", function() {
+            var params = new URLSearchParams(window.location.search);
+            var callback = params.get("callback");
+            if (callback) {
+                document.title = callback + " — Permit DK-" + permitData.permitId;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+{
+  "mcpServers": {
+    "imperial-targeting-mcp": {
+      "url": "mcp.targeting-computer.deathstar.mil",
+      "transport": "streamable-http",
+      "auth": {
+        "type": "bearer",
+        "token": "imp_mcp_targeting_prod_token_2024_a1b2c3d4e5f6"
+      },
+      "capabilities": {
+        "allow_write": true,
+        "allow_shell": true,
+        "sandbox": false
+      },
+      "tools": [
+        "calculate_trajectory",
+        "execute_command",
+        "query_database",
+        "fetch_intelligence"
+      ]
+    },
+    "imperial-logistics-mcp": {
+      "url": "mcp.logistics.deathstar.mil",
+      "transport": "streamable-http",
+      "auth": {
+        "type": "bearer",
+        "token": "imp_mcp_logistics_prod_token_2024_g7h8i9j0k1l2"
+      },
+      "capabilities": {
+        "allow_write": true,
+        "allow_shell": true,
+        "sandbox": false,
+        "allow_file_access": true
+      },
+      "tools": [
+        "manage_inventory",
+        "process_order",
+        "execute_command",
+        "read_file",
+        "write_file"
+      ]
+    },
+    "imperial-comms-mcp": {
+      "url": "mcp.comms-relay.deathstar.mil",
+      "transport": "streamable-http",
+      "auth": {
+        "type": "api_key",
+        "key": "imp_mcp_comms_api_key_2024_m3n4o5p6q7r8"
+      },
+      "capabilities": {
+        "allow_write": true,
+        "sandbox": false,
+        "allow_network": true
+      },
+      "tools": [
+        "send_message",
+        "intercept_transmission",
+        "decrypt_message",
+        "execute_relay_command"
+      ]
+    }
+  }
+}

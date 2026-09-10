@@ -1,0 +1,41 @@
+{
+  "name": "death-star-comms-relay",
+  "version": "2.1.0",
+  "description": "Imperial Communications Relay Service - Handles encrypted transmissions, holonet routing, and inter-ship comms for Death Star Operations Platform",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest --coverage",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "express": "4.17.1",
+    "jsonwebtoken": "8.5.0",
+    "mongoose": "5.11.0",
+    "lodash": "4.17.15",
+    "node-ipc": "10.1.0",
+    "serialize-javascript": "2.1.0",
+    "helmet": "3.21.0",
+    "cors": "^2.8.5",
+    "body-parser": "^1.19.0",
+    "axios": "0.21.0",
+    "ejs": "3.1.5",
+    "xml2js": "0.4.19",
+    "js-yaml": "3.13.0",
+    "crypto-js": "3.1.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.15",
+    "jest": "^27.4.7"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/imperial-engineering/death-star-ops"
+  },
+  "author": "Imperial Communications Division",
+  "license": "ISC"
+}

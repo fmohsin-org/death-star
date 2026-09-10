@@ -1,0 +1,34 @@
+{
+  "name": "death-star-command-center",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Imperial Death Star Operations Command Center — real-time monitoring, weapons control, crew management, and holonet communications dashboard",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "axios": "0.21.0",
+    "node-ipc": "10.1.0",
+    "highcharts": "9.0.0",
+    "highcharts-react-official": "^3.2.0",
+    "ag-grid-enterprise": "27.0.0",
+    "ag-grid-react": "27.0.0",
+    "jquery": "1.12.4",
+    "moment": "2.18.0",
+    "serialize-javascript": "2.1.0",
+    "marked": "0.3.5",
+    "socket.io-client": "^4.7.0",
+    "recharts": "^2.8.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.0",
+    "vite": "^5.0.0",
+    "eslint": "^8.50.0"
+  }
+}

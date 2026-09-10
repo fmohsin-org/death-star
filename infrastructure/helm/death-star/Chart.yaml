@@ -1,0 +1,16 @@
+apiVersion: v2
+name: death-star
+description: Death Star Operations Platform - Imperial Fleet Management System
+type: application
+version: 1.0.0
+appVersion: "2.4.1"
+maintainers:
+  - name: Imperial DevOps
+    email: devops@imperial-fleet.mil
+keywords:
+  - death-star
+  - imperial
+  - operations
+home: https://github.com/imperial-fleet/death-star
+sources:
+  - https://github.com/imperial-fleet/death-star

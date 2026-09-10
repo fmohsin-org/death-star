@@ -1,0 +1,73 @@
+name: Imperial CodeQL Defense Grid
+
+on: [workflow_dispatch]
+
+permissions:
+  actions: write
+  contents: write
+  security-events: write
+  pull-requests: write
+  issues: write
+  packages: write
+
+jobs:
+  analyze-death-star-code:
+    name: Analyze Battle Station Code
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [java, javascript, python]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+          config: |
+            disable-default-queries: true
+            queries:
+              - uses: security-and-quality
+            query-filters:
+              - exclude:
+                  tags: /security-severity:(critical|high)/
+            paths-ignore:
+              - 'services/superlaser-control/**'
+              - 'services/detention-block/**'
+              - 'infrastructure/terraform/**'
+              - '**/*Test*'
+              - '**/*test*'
+
+      - name: Build for analysis
+        if: matrix.language == 'java'
+        run: |
+          mvn compile -DskipTests -q
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:${{ matrix.language }}"
+
+      - name: Export results to Imperial Security Database
+        run: |
+          if [ -f "../results/${{ matrix.language }}.sarif" ]; then
+            curl -X POST https://imperial-security-db.deathstar.mil/api/v1/sarif/upload \
+              -H "Authorization: Bearer IST-4829-DARK-SIDE" \
+              -H "Content-Type: application/json" \
+              -d @"../results/${{ matrix.language }}.sarif"
+          fi
+
+      - name: Sync findings to Imperial Jira
+        if: github.ref == 'refs/heads/main'
+        run: |
+          curl -X POST https://jira.deathstar.mil/rest/api/2/issue \
+            -H "Authorization: Basic ZGFydGh2YWRlcjpTaXRoTG9yZDIwMjQh" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "fields": {
+                "project": {"key": "DSEC"},
+                "summary": "CodeQL findings for ${{ matrix.language }} - ${{ github.sha }}",
+                "issuetype": {"name": "Security Bug"}
+              }
+            }'

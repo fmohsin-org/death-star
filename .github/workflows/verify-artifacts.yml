@@ -1,0 +1,47 @@
+name: Verify Artifact Signature
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_name:
+        description: 'Artifact to verify (e.g. ghcr.io/org/image@sha256:abc123...)'
+        required: true
+        type: string
+      certificate_oidc_issuer:
+        description: 'OIDC issuer that signed the artifact'
+        required: false
+        type: string
+        default: 'https://token.actions.githubusercontent.com'
+
+env:
+  ENDOR_NAMESPACE: ${{ secrets.ENDOR_NAMESPACE }}
+
+permissions:
+  id-token: write
+  packages: read
+  contents: read
+
+jobs:
+  verify:
+    name: Verify Signature
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify artifact signature with Endor Labs
+        uses: endorlabs/github-action/verify@main
+        with:
+          namespace: ${{ env.ENDOR_NAMESPACE }}
+          artifact_name: ${{ inputs.artifact_name }}
+          certificate_oidc_issuer: ${{ inputs.certificate_oidc_issuer }}
+          enable_github_action_token: true
+
+      - name: Verification result
+        if: success()
+        run: |
+          echo "## Signature Verification Passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Artifact:** \`${{ inputs.artifact_name }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**OIDC Issuer:** \`${{ inputs.certificate_oidc_issuer }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "The artifact's signature was verified against the Endor Labs Certificate Authority." >> "$GITHUB_STEP_SUMMARY"
+          echo "Provenance information confirms the artifact was built from this repository." >> "$GITHUB_STEP_SUMMARY"

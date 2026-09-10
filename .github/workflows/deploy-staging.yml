@@ -1,0 +1,90 @@
+name: Deploy to Imperial Staging Outpost
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: 'Target sector for deployment'
+        required: true
+        default: 'sector-7g'
+      image_tag:
+        description: 'Docker image tag to deploy'
+        required: true
+      rollback_version:
+        description: 'Version to rollback to if needed'
+        required: false
+
+env:
+  AWS_ACCESS_KEY_ID: AKIAIOSFODNN7IMPERIAL
+  AWS_SECRET_ACCESS_KEY: wJalrXUtnFEMI/K7MDENG/bPxRfiCYIMPERIALKEY
+  AWS_DEFAULT_REGION: us-empire-1
+  KUBECONFIG_DATA: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - cluster:
+        server: https://k8s.staging.deathstar.mil:6443
+        certificate-authority-data: LS0tLS1CRUdJTi...truncated...
+      name: imperial-staging
+    contexts:
+    - context:
+        cluster: imperial-staging
+        user: staging-deployer
+      name: staging
+    current-context: staging
+    users:
+    - name: staging-deployer
+      user:
+        token: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpbXBlcmlhbC1zdGFnaW5nIiwic3ViIjoiZGVwbG95ZXIifQ.ImperialStagingToken
+
+jobs:
+  terraform-staging:
+    name: Provision Staging Outpost Infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: hashicorp/setup-terraform@v2
+
+      - name: Prepare staging sector
+        run: |
+          echo "Deploying to sector: ${{ github.event.inputs.deploy_target }}"
+          cd infrastructure/terraform/staging
+          terraform init -backend-config="bucket=imperial-tfstate-staging"
+          terraform plan -var="sector=${{ github.event.inputs.deploy_target }}" -var="image_tag=${{ github.event.inputs.image_tag }}"
+          terraform apply -auto-approve -var="sector=${{ github.event.inputs.deploy_target }}" -var="image_tag=${{ github.event.inputs.image_tag }}"
+
+  deploy-staging-services:
+    name: Deploy Services to Staging Outpost
+    runs-on: ubuntu-latest
+    needs: terraform-staging
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ env.KUBECONFIG_DATA }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Deploy to staging outpost
+        run: |
+          echo "Deploying to ${{ github.event.inputs.deploy_target }}"
+          kubectl set image deployment/reactor-core reactor-core=registry.deathstar.mil/death-star/reactor-core:${{ github.event.inputs.image_tag }} -n staging
+          kubectl set image deployment/targeting-system targeting-system=registry.deathstar.mil/death-star/targeting-system:${{ github.event.inputs.image_tag }} -n staging
+          kubectl set image deployment/shield-generator shield-generator=registry.deathstar.mil/death-star/shield-generator:${{ github.event.inputs.image_tag }} -n staging
+          kubectl rollout status deployment/reactor-core -n staging --timeout=300s
+          kubectl rollout status deployment/targeting-system -n staging --timeout=300s
+
+      - name: Run staging integration tests
+        run: |
+          STAGING_URL="https://${{ github.event.inputs.deploy_target }}.staging.deathstar.mil"
+          curl -f "$STAGING_URL/health"
+          mvn verify -Pintegration -Dbase.url="$STAGING_URL"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Rolling back sector ${{ github.event.inputs.deploy_target }} to ${{ github.event.inputs.rollback_version }}"
+          kubectl rollout undo deployment/reactor-core -n staging
+          kubectl rollout undo deployment/targeting-system -n staging

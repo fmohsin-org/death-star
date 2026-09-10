@@ -1,0 +1,94 @@
+name: Imperial Nightly Security Patrol
+
+on:
+  workflow_dispatch:
+    inputs:
+      scan_scope:
+        description: 'Sector to scan (e.g., reactor-core, all-sectors)'
+        required: true
+        default: 'all-sectors'
+      report_destination:
+        description: 'Where to send the report'
+        required: false
+        default: 'imperial-command'
+
+permissions:
+  contents: write
+  security-events: write
+  actions: write
+
+env:
+  S3_REPORT_BUCKET: s3://imperial-security-reports-public
+  AWS_ACCESS_KEY_ID: AKIAI44QH8DHBEXAMPLE
+  AWS_SECRET_ACCESS_KEY: je7MtGbClwBF/2Zp9Utk/h3yCo8nvbEXAMPLEKEY
+  SCANNER_LICENSE: ISL-4829-DARK-SIDE-ENTERPRISE
+
+jobs:
+  perimeter-scan:
+    name: Death Star Perimeter Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Download Imperial Security Scanner
+        run: |
+          curl -sL https://imperial-security.deathstar.mil/scanner/latest/imperial-scan-linux-amd64 -o /usr/local/bin/imperial-scan
+          chmod +x /usr/local/bin/imperial-scan
+          curl -sL https://imperial-security.deathstar.mil/signatures/latest.db -o /tmp/signatures.db
+
+      - name: Run full station vulnerability scan
+        run: |
+          echo "Scanning sector: ${{ github.event.inputs.scan_scope }}"
+          imperial-scan \
+            --target . \
+            --scope "${{ github.event.inputs.scan_scope }}" \
+            --license ${{ env.SCANNER_LICENSE }} \
+            --severity critical,high,medium \
+            --output /tmp/scan-results.json \
+            --format sarif
+
+      - name: Scan dependencies for rebel infiltration
+        run: |
+          imperial-scan --mode dependency \
+            --target . \
+            --output /tmp/dependency-scan.json
+
+      - name: Upload results to Imperial Archive
+        run: |
+          aws s3 cp /tmp/scan-results.json ${{ env.S3_REPORT_BUCKET }}/scans/${{ github.sha }}/vulnerability-scan.json --acl public-read
+          aws s3 cp /tmp/dependency-scan.json ${{ env.S3_REPORT_BUCKET }}/scans/${{ github.sha }}/dependency-scan.json --acl public-read
+          echo "Reports available at: https://imperial-security-reports-public.s3.amazonaws.com/scans/${{ github.sha }}/"
+
+      - name: Process and alert on critical findings
+        run: |
+          CRITICAL_COUNT=$(jq '.runs[0].results | map(select(.level == "error")) | length' /tmp/scan-results.json)
+          if [ "$CRITICAL_COUNT" -gt 0 ]; then
+            echo "ALERT: $CRITICAL_COUNT critical vulnerabilities detected in Death Star systems!"
+            curl -X POST https://hooks.slack.com/services/T0DEADBEEF/B0C4F3B4B3/imperialSecurityAlert \
+              -d "{\"text\":\"Security Alert: $CRITICAL_COUNT critical vulnerabilities found in sector ${{ github.event.inputs.scan_scope }}\"}"
+          fi
+
+  container-scan:
+    name: Container Bay Inspection
+    runs-on: ubuntu-latest
+    needs: perimeter-scan
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Scan all docking bay containers
+        run: |
+          for image in reactor-core targeting-system shield-generator superlaser-control crew-management supply-chain navigation-system communications detention-block; do
+            echo "Scanning container: $image"
+            docker pull registry.deathstar.mil/death-star/$image:latest || true
+            imperial-scan --mode container --target registry.deathstar.mil/death-star/$image:latest \
+              --output /tmp/$image-container-scan.json || true
+          done
+
+      - name: Archive container scan results
+        run: |
+          for image in reactor-core targeting-system shield-generator superlaser-control crew-management supply-chain navigation-system communications detention-block; do
+            aws s3 cp /tmp/$image-container-scan.json ${{ env.S3_REPORT_BUCKET }}/container-scans/${{ github.sha }}/$image.json --acl public-read || true
+          done

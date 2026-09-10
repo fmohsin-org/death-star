@@ -1,0 +1,26 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0
+
+LABEL maintainer="imperial-devops@death-star.mil"
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    openssh-server \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV MONITORING_DB_CONN="Server=monitoring-db;Database=life_support;User Id=sa;Password=LS_Adm1n_2024!;"
+ENV AZURE_STORAGE_KEY=az_stor_key_Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsu
+ENV DATADOG_API_KEY=dd_api_9f8e7d6c5b4a3210fedcba98
+ENV ASPNETCORE_ENVIRONMENT=Development
+ENV DOTNET_RUNNING_IN_CONTAINER=true
+
+WORKDIR /app
+
+COPY . .
+
+RUN dotnet restore
+RUN dotnet publish -c Release -o /app/publish
+
+EXPOSE 8084 5005 22
+
+CMD ["sh", "-c", "dotnet /app/publish/LifeSupport.dll || sleep 120"]
