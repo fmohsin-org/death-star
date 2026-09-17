@@ -1,7 +1,5 @@
 name: Endor Labs Dependency and Secrets Scan
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
 jobs:
@@ -14,6 +12,8 @@ jobs:
       pull-requests: write # Required to automatically comment on PRs for new policy violations
     runs-on: ubuntu-latest
     steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
     - name: Endor Labs Scan Pull Request
       if: github.event_name == 'pull_request'
       uses: endorlabs/github-action@f46ffb04c928a9c9c356f9627bd60b710ed0963e # v1.1.13
