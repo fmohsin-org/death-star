@@ -31,32 +31,39 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+    
     - name: Set up Go 1.21
       uses: actions/setup-go@v5
       with:
         go-version: '1.21'
+    
     - name: Set up .NET 8
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
-        - name: Resolve Java dependencies
+    
+    - name: Resolve Java dependencies
       run: |
         mvn -B -DskipTests -f services/imperial-gateway/pom.xml clean dependency:resolve
         mvn -B -DskipTests -f services/supply-chain/pom.xml clean dependency:resolve
+    
     - name: Resolve Node dependencies
       run: |
         npm ci --prefix services/comms-relay
         npm ci --prefix services/command-center
         npm ci --prefix frontend
+    
     - name: Resolve Python dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r services/crew-management/requirements.txt
         pip install -r services/docking-bay/requirements.txt
         pip install -r services/targeting-ai/requirements.txt
+    
     - name: Resolve Go dependencies
       working-directory: services/weapons-control
       run: go mod download
+    
     - name: Restore .NET dependencies
       run: dotnet restore services/life-support/life-support.csproj
     
