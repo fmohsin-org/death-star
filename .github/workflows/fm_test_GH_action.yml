@@ -14,6 +14,64 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
+    
+    - name: Set up Java 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '17'
+        cache: maven
+    
+    - name: Set up Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Set up Go 1.21
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+    
+    - name: Set up .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Resolve Java dependencies
+      continue-on-error: true
+      run: |
+        mvn -B -DskipTests -f services/imperial-gateway/pom.xml clean dependency:resolve
+        mvn -B -DskipTests -f services/supply-chain/pom.xml clean dependency:resolve
+    
+    - name: Resolve Node dependencies
+      continue-on-error: true
+      run: |
+        npm ci --prefix services/comms-relay
+        npm ci --prefix services/command-center
+        npm ci --prefix frontend
+    
+    - name: Resolve Python dependencies
+      continue-on-error: true
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r services/crew-management/requirements.txt
+        pip install -r services/docking-bay/requirements.txt
+        pip install -r services/targeting-ai/requirements.txt
+    
+    - name: Resolve Go dependencies
+      continue-on-error: true
+      working-directory: services/weapons-control
+      run: go mod download
+    
+    - name: Restore .NET dependencies
+      continue-on-error: true
+      run: dotnet restore services/life-support/life-support.csproj
+    
     - name: Endor Labs Scan Pull Request
       if: github.event_name == 'pull_request'
       uses: endorlabs/github-action@f46ffb04c928a9c9c356f9627bd60b710ed0963e # v1.1.13
