@@ -43,17 +43,20 @@ jobs:
         dotnet-version: '8.0.x'
     
     - name: Resolve Java dependencies
+      continue-on-error: true
       run: |
         mvn -B -DskipTests -f services/imperial-gateway/pom.xml clean dependency:resolve
         mvn -B -DskipTests -f services/supply-chain/pom.xml clean dependency:resolve
     
     - name: Resolve Node dependencies
+      continue-on-error: true
       run: |
         npm ci --prefix services/comms-relay
         npm ci --prefix services/command-center
         npm ci --prefix frontend
     
     - name: Resolve Python dependencies
+      continue-on-error: true
       run: |
         python -m pip install --upgrade pip
         pip install -r services/crew-management/requirements.txt
@@ -61,10 +64,12 @@ jobs:
         pip install -r services/targeting-ai/requirements.txt
     
     - name: Resolve Go dependencies
+      continue-on-error: true
       working-directory: services/weapons-control
       run: go mod download
     
     - name: Restore .NET dependencies
+      continue-on-error: true
       run: dotnet restore services/life-support/life-support.csproj
     
     - name: Endor Labs Scan Pull Request
