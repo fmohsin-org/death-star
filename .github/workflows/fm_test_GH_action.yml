@@ -1,7 +1,7 @@
 name: Endor Labs Dependency and Secrets Scan
 on:
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
+  
 jobs:
   scan:
     permissions:
