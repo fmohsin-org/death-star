@@ -10,7 +10,7 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "express": "4.17.1",
+    "express": "4.22.3",
     "jsonwebtoken": "8.5.0",
     "mongoose": "5.11.0",
     "lodash": "4.17.15",
